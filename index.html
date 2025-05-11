@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StratJuris Meeting Room Scheduler</title>
+    <style>
+        :root {
+            --primary: #0a4c80;
+            --secondary: #e9f2fa;
+            --accent: #ff6b35;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --success: #28a745;
+            --danger: #dc3545;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--light);
+            color: var(--dark);
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            margin: 0;
+        }
+        
+        .date-display {
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+        
+        .rooms-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .room {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 15px;
+        }
+        
+        .room-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        
+        .timeline {
+            position: relative;
+            height: 60px;
+            background-color: var(--secondary);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .time-markers {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 0.7rem;
+            color: #666;
+        }
+        
+        .booking {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            background-color: var(--accent);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.75rem;
+            padding: 0 5px;
+            border-radius: 3px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .booking:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        
+        .booking-name {
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .booking-purpose {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .current-time-indicator {
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background-color: var(--danger);
+            z-index: 10;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .modal-title {
+            font-size: 1.4rem;
+            color: var(--primary);
+        }
+        
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .time-selector {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .time-selector select {
+            flex: 1;
+        }
+        
+        .button-group {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .btn-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0,0,0,0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            z-index: 20;
+            display: none;
+        }
+        
+        .book-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .book-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.2s;
+        }
+        
+        .book-btn:hover {
+            background-color: #083b65;
+        }
+        
+        .availability-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .indicator-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .dot-available {
+            background-color: var(--success);
+        }
+        
+        .dot-occupied {
+            background-color: var(--accent);
+        }
+        
+        .view-booking-details {
+            margin-top: 10px;
+        }
+        
+        .detail-row {
+            display: flex;
+            margin-bottom: 5px;
+        }
+        
+        .detail-label {
+            font-weight: bold;
+            width: 100px;
+        }
+        
+        .error-message {
+            color: var(--danger);
+            font-size: 0.9rem;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>StratJuris Law Partners - Meeting Room Scheduler</h1>
+        <div class="date-display" id="currentDate"></div>
+    </header>
+    
+    <div class="rooms-container" id="roomsContainer">
+        <!-- Rooms will be generated here -->
+    </div>
+    
+    <!-- Booking Modal -->
+    <div class="modal" id="bookingModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Book a Meeting Room</h3>
+                <button class="close-button" id="closeModal">&times;</button>
+            </div>
+            <form id="bookingForm">
+                <input type="hidden" id="bookingId" value="">
+                <input type="hidden" id="roomId" value="">
+                
+                <div class="form-group">
+                    <label for="bookingName">Your Name *</label>
+                    <input type="text" id="bookingName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="bookingPurpose">Meeting Purpose *</label>
+                    <input type="text" id="bookingPurpose" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Time Slot *</label>
+                    <div class="time-selector">
+                        <select id="startTime" required>
+                            <!-- Options will be generated -->
+                        </select>
+                        <span>to</span>
+                        <select id="endTime" required>
+                            <!-- Options will be generated -->
+                        </select>
+                    </div>
+                    <div class="error-message" id="timeError">End time must be after start time</div>
+                </div>
+                
+                <div class="button-group">
+                    <button type="button" class="btn btn-secondary" id="cancelButton">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveButton">Save Booking</button>
+                    <button type="button" class="btn btn-danger" id="deleteButton" style="display: none;">Delete Booking</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- View Booking Modal -->
+    <div class="modal" id="viewBookingModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="viewModalTitle">Meeting Details</h3>
+                <button class="close-button" id="closeViewModal">&times;</button>
+            </div>
+            <div class="view-booking-details">
+                <div class="detail-row">
+                    <span class="detail-label">Room:</span>
+                    <span id="detailRoom"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Booked by:</span>
+                    <span id="detailName"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Purpose:</span>
+                    <span id="detailPurpose"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Time:</span>
+                    <span id="detailTime"></span>
+                </div>
+            </div>
+            <div class="button-group">
+                <button type="button" class="btn btn-secondary" id="closeDetailsButton">Close</button>
+                <button type="button" class="btn btn-primary" id="editBookingButton">Edit Booking</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+    
+    <script>
+        // Room configuration
+        const rooms = [
+            { id: 'conference', name: 'Conference Room', capacity: 20 },
+            { id: 'small', name: 'Small Meeting Room', capacity: 8 },
+            { id: 'office317', name: 'Office 317 Meeting Room', capacity: 12 }
+        ];
+        
+        // Time slots
+        const timeSlots = [];
+        for (let hour = 8; hour <= 20; hour++) {
+            const hourString = hour.toString().padStart(2, '0');
+            timeSlots.push(`${hourString}:00`);
+            timeSlots.push(`${hourString}:30`);
+        }
+        
+        // Store bookings in localStorage
+        let bookings = [];
+        
+        // DOM elements
+        const roomsContainer = document.getElementById('roomsContainer');
+        const bookingModal = document.getElementById('bookingModal');
+        const viewBookingModal = document.getElementById('viewBookingModal');
+        const bookingForm = document.getElementById('bookingForm');
+        const closeModal = document.getElementById('closeModal');
+        const closeViewModal = document.getElementById('closeViewModal');
+        const cancelButton = document.getElementById('cancelButton');
+        const deleteButton = document.getElementById('deleteButton');
+        const closeDetailsButton = document.getElementById('closeDetailsButton');
+        const editBookingButton = document.getElementById('editBookingButton');
+        const modalTitle = document.getElementById('modalTitle');
+        const currentDateDisplay = document.getElementById('currentDate');
+        const startTimeSelect = document.getElementById('startTime');
+        const endTimeSelect = document.getElementById('endTime');
+        const tooltip = document.getElementById('tooltip');
+        const timeError = document.getElementById('timeError');
+        
+        // Current booking being edited
+        let currentBooking = null;
+        
+        // Initialize the application
+        function init() {
+            loadBookings();
+            updateCurrentDate();
+            populateTimeSlots();
+            createRoomElements();
+            renderBookings();
+            updateCurrentTimeIndicator();
+            
+            // Set up event listeners
+            closeModal.addEventListener('click', hideBookingModal);
+            closeViewModal.addEventListener('click', hideViewBookingModal);
+            cancelButton.addEventListener('click', hideBookingModal);
+            closeDetailsButton.addEventListener('click', hideViewBookingModal);
+            editBookingButton.addEventListener('click', handleEditBooking);
+            deleteButton.addEventListener('click', handleDeleteBooking);
+            bookingForm.addEventListener('submit', handleSaveBooking);
+            
+            // Update time indicators periodically
+            setInterval(updateCurrentTimeIndicator, 60000); // Every minute
+        }
+        
+        // Load bookings (in-memory storage)
+        function loadBookings() {
+            // Initialize with empty array - in-memory storage only
+            bookings = [];
+            
+            // No prefilled meetings as requested
+        }
+        
+        // Save bookings (in-memory storage)
+        function saveBookings() {
+            // In-memory storage - no action needed
+            // Data will persist until page reload
+        }
+        
+        // Update current date display
+        function updateCurrentDate() {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const today = new Date();
+            currentDateDisplay.textContent = today.toLocaleDateString('en-US', options);
+        }
+        
+        // Populate time slot dropdowns
+        function populateTimeSlots() {
+            startTimeSelect.innerHTML = '';
+            endTimeSelect.innerHTML = '';
+            
+            timeSlots.forEach((time, index) => {
+                if (index < timeSlots.length - 1) {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = formatTo12Hour(time);
+                    startTimeSelect.appendChild(option);
+                }
+                
+                if (index > 0) {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = formatTo12Hour(time);
+                    endTimeSelect.appendChild(option);
+                }
+            });
+            
+            // Set default end time to start time + 30 minutes
+            startTimeSelect.addEventListener('change', () => {
+                const startIndex = timeSlots.indexOf(startTimeSelect.value);
+                if (startIndex !== -1 && startIndex < timeSlots.length - 1) {
+                    endTimeSelect.value = timeSlots[startIndex + 1];
+                }
+                validateTimeSelection();
+            });
+            
+            endTimeSelect.addEventListener('change', validateTimeSelection);
+        }
+        
+        // Validate time selection
+        function validateTimeSelection() {
+            const startIndex = timeSlots.indexOf(startTimeSelect.value);
+            const endIndex = timeSlots.indexOf(endTimeSelect.value);
+            
+            if (startIndex >= endIndex) {
+                timeError.style.display = 'block';
+                return false;
+            } else {
+                timeError.style.display = 'none';
+                return true;
+            }
+        }
+        
+        // Create room elements
+        function createRoomElements() {
+            roomsContainer.innerHTML = '';
+            
+            rooms.forEach(room => {
+                const roomElement = document.createElement('div');
+                roomElement.className = 'room';
+                roomElement.id = `room-${room.id}`;
+                
+                const timelineWidth = calculateTimelineWidth();
+                
+                roomElement.innerHTML = `
+                    <div class="room-header">
+                        <h2>${room.name}</h2>
+                    </div>
+                    <div class="timeline" id="timeline-${room.id}">
+                        <div class="current-time-indicator" id="time-indicator-${room.id}"></div>
+                    </div>
+                    <div class="time-markers">
+                        <span>8:00 AM</span>
+                        <span>10:00 AM</span>
+                        <span>12:00 PM</span>
+                        <span>2:00 PM</span>
+                        <span>4:00 PM</span>
+                        <span>6:00 PM</span>
+                        <span>8:00 PM</span>
+                    </div>
+                    <div class="book-buttons">
+                        <button class="book-btn" data-room="${room.id}">Book This Room</button>
+                    </div>
+                `;
+                
+                roomsContainer.appendChild(roomElement);
+                
+                // Add event listener to book button
+                const bookBtn = roomElement.querySelector('.book-btn');
+                bookBtn.addEventListener('click', () => showBookingModal(room.id));
+            });
+        }
+        
+        // Calculate timeline width
+        function calculateTimelineWidth() {
+            const totalMinutes = (19 - 8) * 60; // 8:00 AM to 7:00 PM
+            return totalMinutes;
+        }
+        
+        // Render bookings on timelines
+        function renderBookings() {
+            // Clear existing bookings
+            document.querySelectorAll('.booking').forEach(el => el.remove());
+            
+            // Render each booking
+            bookings.forEach(booking => {
+                const timelineElement = document.getElementById(`timeline-${booking.roomId}`);
+                if (!timelineElement) return;
+                
+                const bookingElement = document.createElement('div');
+                bookingElement.className = 'booking';
+                bookingElement.setAttribute('data-id', booking.id);
+                
+                // Calculate position and width
+                const startMinutes = timeToMinutes(booking.startTime) - timeToMinutes('08:00');
+                const endMinutes = timeToMinutes(booking.endTime) - timeToMinutes('08:00');
+                const totalMinutes = timeToMinutes('20:00') - timeToMinutes('08:00');
+                
+                const startPercent = (startMinutes / totalMinutes) * 100;
+                const widthPercent = ((endMinutes - startMinutes) / totalMinutes) * 100;
+                
+                bookingElement.style.left = `${startPercent}%`;
+                bookingElement.style.width = `${widthPercent}%`;
+                
+                bookingElement.innerHTML = `
+                    <div class="booking-name">${booking.name}</div>
+                    <div class="booking-purpose">${booking.purpose}</div>
+                `;
+                
+                timelineElement.appendChild(bookingElement);
+                
+                // Add event listeners for tooltip and click
+                bookingElement.addEventListener('mouseover', (e) => {
+                    showTooltip(e, `${booking.name}: ${booking.purpose}<br>${booking.startTime} - ${booking.endTime}`);
+                });
+                
+                bookingElement.addEventListener('mousemove', moveTooltip);
+                bookingElement.addEventListener('mouseout', hideTooltip);
+                
+                bookingElement.addEventListener('click', () => {
+                    showViewBookingModal(booking);
+                });
+            });
+            
+            // Update room availability indicators
+            updateRoomAvailability();
+        }
+        
+        // Update room availability indicators
+        function updateRoomAvailability() {
+            // Function kept for compatibility, but functionality removed
+            // since availability indicators were removed from the UI
+        }
+        
+        // Convert time string to minutes
+        function timeToMinutes(timeString) {
+            const [hours, minutes] = timeString.split(':').map(Number);
+            return hours * 60 + minutes;
+        }
+        
+        // Update current time indicator
+        function updateCurrentTimeIndicator() {
+            const currentTime = new Date();
+            const currentHour = currentTime.getHours();
+            const currentMinute = currentTime.getMinutes();
+            
+            // Only show indicator during business hours
+            if (currentHour < 8 || (currentHour === 20 && currentMinute > 0) || currentHour > 20) {
+                document.querySelectorAll('.current-time-indicator').forEach(el => {
+                    el.style.display = 'none';
+                });
+                return;
+            }
+            
+            const totalMinutes = timeToMinutes('20:00') - timeToMinutes('08:00');
+            const currentMinutes = timeToMinutes(`${currentHour}:${currentMinute}`) - timeToMinutes('08:00');
+            const percent = (currentMinutes / totalMinutes) * 100;
+            
+            document.querySelectorAll('.current-time-indicator').forEach(el => {
+                el.style.display = 'block';
+                el.style.left = `${percent}%`;
+            });
+            
+            // Also update room availability
+            updateRoomAvailability();
+        }
+        
+        // Show booking modal
+        function showBookingModal(roomId, bookingId = null) {
+            const room = rooms.find(r => r.id === roomId);
+            
+            // Reset form
+            bookingForm.reset();
+            deleteButton.style.display = 'none';
+            document.getElementById('roomId').value = roomId;
+            document.getElementById('bookingId').value = bookingId || '';
+            
+            if (bookingId) {
+                // Editing existing booking
+                currentBooking = bookings.find(b => b.id === bookingId);
+                if (currentBooking) {
+                    modalTitle.textContent = `Edit Booking - ${room.name}`;
+                    document.getElementById('bookingName').value = currentBooking.name;
+                    document.getElementById('bookingPurpose').value = currentBooking.purpose;
+                    document.getElementById('startTime').value = currentBooking.startTime;
+                    document.getElementById('endTime').value = currentBooking.endTime;
+                    deleteButton.style.display = 'block';
+                }
+            } else {
+                // New booking
+                modalTitle.textContent = `Book ${room.name}`;
+                currentBooking = null;
+                
+                // Set default values
+                const now = new Date();
+                let defaultStartHour = now.getHours();
+                let defaultStartMinute = now.getMinutes() < 30 ? 30 : 0;
+                
+                if (defaultStartMinute === 0) {
+                    defaultStartHour += 1;
+                }
+                
+                if (defaultStartHour < 8) {
+                    defaultStartHour = 8;
+                    defaultStartMinute = 0;
+                } else if (defaultStartHour >= 20) {
+                    defaultStartHour = 19;
+                    defaultStartMinute = 30;
+                }
+                
+                const defaultStartTime = `${defaultStartHour.toString().padStart(2, '0')}:${defaultStartMinute.toString().padStart(2, '0')}`;
+                let defaultEndHour = defaultStartMinute === 30 ? defaultStartHour + 1 : defaultStartHour;
+                let defaultEndMinute = defaultStartMinute === 30 ? 0 : 30;
+                
+                if (defaultEndHour >= 20) {
+                    defaultEndHour = 20;
+                    defaultEndMinute = 0;
+                }
+                
+                const defaultEndTime = `${defaultEndHour.toString().padStart(2, '0')}:${defaultEndMinute.toString().padStart(2, '0')}`;
+                
+                document.getElementById('startTime').value = defaultStartTime;
+                document.getElementById('endTime').value = defaultEndTime;
+            }
+            
+            bookingModal.style.display = 'flex';
+        }
+        
+        // Hide booking modal
+        function hideBookingModal() {
+            bookingModal.style.display = 'none';
+            timeError.style.display = 'none';
+        }
+        
+        // Show view booking modal
+        function showViewBookingModal(booking) {
+            const room = rooms.find(r => r.id === booking.roomId);
+            
+            document.getElementById('viewModalTitle').textContent = `Meeting Details`;
+            document.getElementById('detailRoom').textContent = room.name;
+            document.getElementById('detailName').textContent = booking.name;
+            document.getElementById('detailPurpose').textContent = booking.purpose;
+            document.getElementById('detailTime').textContent = `${formatTo12Hour(booking.startTime)} - ${formatTo12Hour(booking.endTime)}`;
+            
+            // Store current booking for edit functionality
+            currentBooking = booking;
+            
+            viewBookingModal.style.display = 'flex';
+        }
+        
+        // Hide view booking modal
+        function hideViewBookingModal() {
+            viewBookingModal.style.display = 'none';
+        }
+        
+        // Handle edit booking button
+        function handleEditBooking() {
+            hideViewBookingModal();
+            showBookingModal(currentBooking.roomId, currentBooking.id);
+        }
+        
+        // Handle delete booking
+        function handleDeleteBooking() {
+            const bookingId = document.getElementById('bookingId').value;
+            if (bookingId) {
+                bookings = bookings.filter(b => b.id !== bookingId);
+                saveBookings();
+                renderBookings();
+                hideBookingModal();
+            }
+        }
+        
+        // Handle save booking
+        function handleSaveBooking(e) {
+            e.preventDefault();
+            
+            if (!validateTimeSelection()) {
+                return;
+            }
+            
+            const bookingId = document.getElementById('bookingId').value;
+            const roomId = document.getElementById('roomId').value;
+            const name = document.getElementById('bookingName').value.trim();
+            const purpose = document.getElementById('bookingPurpose').value.trim();
+            const startTime = document.getElementById('startTime').value;
+            const endTime = document.getElementById('endTime').value;
+            
+            if (!name || !purpose) {
+                alert('Name and purpose are required');
+                return;
+            }
+            
+            // Check for time conflicts
+            const otherBookings = bookings.filter(b => b.id !== bookingId && b.roomId === roomId);
+            const hasConflict = otherBookings.some(booking => {
+                // Check if the new booking overlaps with an existing booking
+                return (startTime < booking.endTime && endTime > booking.startTime);
+            });
+            
+            if (hasConflict) {
+                alert('This time slot conflicts with an existing booking');
+                return;
+            }
+            
+            if (bookingId) {
+                // Update existing booking
+                const index = bookings.findIndex(b => b.id === bookingId);
+                if (index !== -1) {
+                    bookings[index] = {
+                        ...bookings[index],
+                        name,
+                        purpose,
+                        startTime,
+                        endTime
+                    };
+                }
+            } else {
+                // Create new booking
+                const newBooking = {
+                    id: generateId(),
+                    roomId,
+                    name,
+                    purpose,
+                    startTime,
+                    endTime
+                };
+                bookings.push(newBooking);
+            }
+            
+            saveBookings();
+            renderBookings();
+            hideBookingModal();
+        }
+        
+        // Generate unique ID
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+        
+        // Format time to 12-hour format
+        function formatTo12Hour(timeString) {
+            const [hours, minutes] = timeString.split(':');
+            const hourNum = parseInt(hours);
+            const period = hourNum >= 12 ? 'PM' : 'AM';
+            const hour12 = hourNum % 12 || 12;
+            return `${hour12}:${minutes} ${period}`;
+        }
+        
+        // Show tooltip
+        function showTooltip(e, content) {
+            // Convert any times in the content to 12-hour format
+            const formattedContent = content.replace(/(\d{1,2}):(\d{2})/g, (match) => {
+                return formatTo12Hour(match);
+            });
+            
+            tooltip.innerHTML = formattedContent;
+            tooltip.style.display = 'block';
+            moveTooltip(e);
+        }
+        
+        // Move tooltip with mouse
+        function moveTooltip(e) {
+            tooltip.style.left = `${e.pageX + 10}px`;
+            tooltip.style.top = `${e.pageY + 10}px`;
+        }
+        
+        // Hide tooltip
+        function hideTooltip() {
+            tooltip.style.display = 'none';
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
