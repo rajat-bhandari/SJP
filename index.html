@@ -1,24 +1,12 @@
-
-                        <!DOCTYPE html>
-                        <html lang="en">
-                        <head>
-                            <meta charset="UTF-8">
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-							<style>
-								body {
-									background-color: white; /* Ensure the iframe has a white background */
-								}
-
-								
-							</style>
-                        </head>
-                        <body>
-                            <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meeting Room Scheduler</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js "></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js "></script>
     <style>
         :root {
             --primary: #0a4c80;
@@ -247,23 +235,6 @@
         .book-btn:hover {
             background-color: #083b65;
         }
-        .availability-indicator {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 0.9rem;
-        }
-        .indicator-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-        }
-        .dot-available {
-            background-color: var(--success);
-        }
-        .dot-occupied {
-            background-color: var(--accent);
-        }
         .view-booking-details {
             margin-top: 10px;
         }
@@ -359,6 +330,23 @@
     </div>
     <div class="tooltip" id="tooltip"></div>
     <script>
+        // Initialize Firebase with your config
+const firebaseConfig = {
+  apiKey: "AIzaSyB2sGPj-TjfE7AvbFb60fvwlYvxczCNOio",
+  authDomain: "sjp-meeting.firebaseapp.com",
+  databaseURL: "https://sjp-meeting-default-rtdb.firebaseio.com",
+  projectId: "sjp-meeting",
+  storageBucket: "sjp-meeting.firebasestorage.app",
+  messagingSenderId: "176442704423",
+  appId: "1:176442704423:web:8878051a5e259be1490402",
+  measurementId: "G-YWSM8QVB2F"
+};
+
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
         // Room configuration
         const rooms = [
             { id: 'conference', name: 'Conference Room', capacity: 20 },
@@ -366,9 +354,9 @@
             { id: 'office317', name: 'Office 317 Meeting Room', capacity: 12 }
         ];
         
-        // Store bookings in localStorage
+        // Store bookings
         let bookings = [];
-        
+
         // DOM elements
         const roomsContainer = document.getElementById('roomsContainer');
         const bookingModal = document.getElementById('bookingModal');
@@ -389,10 +377,10 @@
         
         // Current booking being edited
         let currentBooking = null;
-        
+
         // Initialize the application
         function init() {
-            loadBookings();
+            initFirebaseSync();
             updateCurrentDate();
             createRoomElements();
             renderBookings();
@@ -410,27 +398,30 @@
             // Update time indicators periodically
             setInterval(updateCurrentTimeIndicator, 60000); // Every minute
         }
-        
-        // Load bookings (in-memory storage)
-        function loadBookings() {
-            // Initialize with empty array - in-memory storage only
-            bookings = [];
-            // No prefilled meetings as requested
+
+        // Set up Firebase real-time sync
+        function initFirebaseSync() {
+            database.ref('bookings').on('value', (snapshot) => {
+                const data = snapshot.val();
+                bookings = data ? Object.values(data) : [];
+                renderBookings();
+            });
         }
-        
-        // Save bookings (in-memory storage)
-        function saveBookings() {
-            // In-memory storage - no action needed
-            // Data will persist until page reload
+
+        // Parse time string to minutes since midnight
+        function parseTime(timeStr) {
+            const regex = /^(\d{1,2}):(\d{2})$/;
+            const match = timeStr.match(regex);
+            if (!match) return null;
+            
+            const hours = parseInt(match[1]);
+            const minutes = parseInt(match[2]);
+            
+            if (hours < 0 || hours >= 24 || minutes < 0 || minutes >= 60) return null;
+            
+            return hours * 60 + minutes;
         }
-        
-        // Update current date display
-        function updateCurrentDate() {
-            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            const today = new Date();
-            currentDateDisplay.textContent = today.toLocaleDateString('en-US', options);
-        }
-        
+
         // Validate time selection
         function validateTimeSelection() {
             const startTime = document.getElementById('startTime').value.trim();
@@ -460,21 +451,14 @@
             timeError.style.display = 'none';
             return true;
         }
-        
-        // Parse time string to minutes since midnight
-        function parseTime(timeStr) {
-            const regex = /^(\d{1,2}):(\d{2})$/;
-            const match = timeStr.match(regex);
-            if (!match) return null;
-            
-            const hours = parseInt(match[1]);
-            const minutes = parseInt(match[2]);
-            
-            if (hours < 0 || hours >= 24 || minutes < 0 || minutes >= 60) return null;
-            
-            return hours * 60 + minutes;
+
+        // Update current date display
+        function updateCurrentDate() {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const today = new Date();
+            currentDateDisplay.textContent = today.toLocaleDateString('en-US', options);
         }
-        
+
         // Create room elements
         function createRoomElements() {
             roomsContainer.innerHTML = '';
@@ -509,13 +493,13 @@
                 bookBtn.addEventListener('click', () => showBookingModal(room.id));
             });
         }
-        
+
         // Calculate timeline width
         function calculateTimelineWidth() {
             const totalMinutes = (19 - 8) * 60; // 8:00 AM to 7:00 PM
             return totalMinutes;
         }
-        
+
         // Render bookings on timelines
         function renderBookings() {
             // Clear existing bookings
@@ -550,22 +534,14 @@
                     showViewBookingModal(booking);
                 });
             });
-            // Update room availability indicators
-            updateRoomAvailability();
         }
-        
-        // Update room availability indicators
-        function updateRoomAvailability() {
-            // Function kept for compatibility, but functionality removed
-            // since availability indicators were removed from the UI
-        }
-        
+
         // Convert time string to minutes
         function timeToMinutes(timeString) {
             const [hours, minutes] = timeString.split(':').map(Number);
             return hours * 60 + minutes;
         }
-        
+
         // Update current time indicator
         function updateCurrentTimeIndicator() {
             const currentTime = new Date();
@@ -585,10 +561,8 @@
                 el.style.display = 'block';
                 el.style.left = `${percent}%`;
             });
-            // Also update room availability
-            updateRoomAvailability();
         }
-        
+
         // Show booking modal
         function showBookingModal(roomId, bookingId = null) {
             const room = rooms.find(r => r.id === roomId);
@@ -639,13 +613,13 @@
             }
             bookingModal.style.display = 'flex';
         }
-        
+
         // Hide booking modal
         function hideBookingModal() {
             bookingModal.style.display = 'none';
             timeError.style.display = 'none';
         }
-        
+
         // Show view booking modal
         function showViewBookingModal(booking) {
             const room = rooms.find(r => r.id === booking.roomId);
@@ -658,29 +632,27 @@
             currentBooking = booking;
             viewBookingModal.style.display = 'flex';
         }
-        
+
         // Hide view booking modal
         function hideViewBookingModal() {
             viewBookingModal.style.display = 'none';
         }
-        
+
         // Handle edit booking button
         function handleEditBooking() {
             hideViewBookingModal();
             showBookingModal(currentBooking.roomId, currentBooking.id);
         }
-        
+
         // Handle delete booking
         function handleDeleteBooking() {
             const bookingId = document.getElementById('bookingId').value;
             if (bookingId) {
-                bookings = bookings.filter(b => b.id !== bookingId);
-                saveBookings();
-                renderBookings();
+                database.ref(`bookings/${bookingId}`).remove();
                 hideBookingModal();
             }
         }
-        
+
         // Handle save booking
         function handleSaveBooking(e) {
             e.preventDefault();
@@ -702,7 +674,6 @@
             // Check for time conflicts
             const otherBookings = bookings.filter(b => b.id !== bookingId && b.roomId === roomId);
             const hasConflict = otherBookings.some(booking => {
-                // Check if the new booking overlaps with an existing booking
                 return (startTime < booking.endTime && endTime > booking.startTime);
             });
             
@@ -713,16 +684,13 @@
             
             if (bookingId) {
                 // Update existing booking
-                const index = bookings.findIndex(b => b.id === bookingId);
-                if (index !== -1) {
-                    bookings[index] = {
-                        ...bookings[index],
-                        name,
-                        purpose,
-                        startTime,
-                        endTime
-                    };
-                }
+                database.ref(`bookings/${bookingId}`).update({
+                    roomId,
+                    name,
+                    purpose,
+                    startTime,
+                    endTime
+                });
             } else {
                 // Create new booking
                 const newBooking = {
@@ -733,19 +701,17 @@
                     startTime,
                     endTime
                 };
-                bookings.push(newBooking);
+                database.ref(`bookings/${newBooking.id}`).set(newBooking);
             }
             
-            saveBookings();
-            renderBookings();
             hideBookingModal();
         }
-        
+
         // Generate unique ID
         function generateId() {
             return Date.now().toString(36) + Math.random().toString(36).substr(2);
         }
-        
+
         // Format time to 12-hour format
         function formatTo12Hour(timeString) {
             const [hours, minutes] = timeString.split(':');
@@ -754,7 +720,7 @@
             const hour12 = hourNum % 12 || 12;
             return `${hour12}:${minutes} ${period}`;
         }
-        
+
         // Show tooltip
         function showTooltip(e, content) {
             // Convert any times in the content to 12-hour format
@@ -765,29 +731,20 @@
             tooltip.style.display = 'block';
             moveTooltip(e);
         }
-        
+
         // Move tooltip with mouse
         function moveTooltip(e) {
             tooltip.style.left = `${e.pageX + 10}px`;
             tooltip.style.top = `${e.pageY + 10}px`;
         }
-        
+
         // Hide tooltip
         function hideTooltip() {
             tooltip.style.display = 'none';
         }
-        
+
         // Initialize on load
         window.addEventListener('load', init);
     </script>
 </body>
 </html>
-
-
-
-							<script>
-                            	
-							</script>
-                        </body>
-                        </html>
-                    
