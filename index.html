@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meeting Room Scheduler</title>
     <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js "></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js "></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
         :root {
             --primary: #C89933;
@@ -252,6 +252,13 @@
             margin-top: 5px;
             display: none;
         }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            color: #666;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
@@ -329,18 +336,19 @@
         </div>
     </div>
     <div class="tooltip" id="tooltip"></div>
+
     <script>
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyB2sGPj-TjfE7AvbFb60fvwlYvxczCNOio",
-  authDomain: "sjp-meeting.firebaseapp.com",
-  databaseURL: "https://sjp-meeting-default-rtdb.firebaseio.com",
-  projectId: "sjp-meeting",
-  storageBucket: "sjp-meeting.firebasestorage.app",
-  messagingSenderId: "176442704423",
-  appId: "1:176442704423:web:8878051a5e259be1490402",
-  measurementId: "G-YWSM8QVB2F"
-};
+        // Firebase configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyB2sGPj-TjfE7AvbFb60fvwlYvxczCNOio",
+          authDomain: "sjp-meeting.firebaseapp.com",
+          databaseURL: "https://sjp-meeting-default-rtdb.firebaseio.com",
+          projectId: "sjp-meeting",
+          storageBucket: "sjp-meeting.firebasestorage.app",
+          messagingSenderId: "176442704423",
+          appId: "1:176442704423:web:8878051a5e259be1490402",
+          measurementId: "G-YWSM8QVB2F"
+        };
         
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
@@ -348,9 +356,9 @@ const firebaseConfig = {
 
         // Room configuration
         const rooms = [
-            { id: 'conference', name: 'Conference Room', capacity: 20 },
-            { id: 'small', name: 'Small Meeting Room', capacity: 8 },
-            { id: 'office317', name: 'Office 317 Meeting Room', capacity: 12 }
+            { id: 'conference', name: 'Conference Room' },
+            { id: 'small', name: 'Small Meeting Room' },
+            { id: 'office317', name: 'Office 317 Meeting Room' }
         ];
         
         // Store bookings
@@ -376,6 +384,16 @@ const firebaseConfig = {
         
         // Current booking being edited
         let currentBooking = null;
+        
+        // Get today's date in YYYY-MM-DD format
+        function getTodayDateString() {
+            const d = new Date();
+            return [
+                d.getFullYear(),
+                String(d.getMonth() + 1).padStart(2, '0'),
+                String(d.getDate()).padStart(2, '0')
+            ].join('-');
+        }
 
         // Initialize the application
         function init() {
@@ -396,6 +414,9 @@ const firebaseConfig = {
             
             // Update time indicators periodically
             setInterval(updateCurrentTimeIndicator, 60000); // Every minute
+            
+            // Check and delete old bookings on page load
+            checkAndDeleteOldBookings();
         }
 
         // Set up Firebase real-time sync
@@ -404,6 +425,21 @@ const firebaseConfig = {
                 const data = snapshot.val();
                 bookings = data ? Object.values(data) : [];
                 renderBookings();
+            });
+        }
+        
+        // Delete bookings from previous days
+        async function checkAndDeleteOldBookings() {
+            const today = getTodayDateString();
+            const snapshot = await database.ref('bookings').once('value');
+            const data = snapshot.val();
+            
+            if (!data) return;
+            
+            Object.keys(data).forEach(key => {
+                if (data[key].date !== today) {
+                    database.ref(`bookings/${key}`).remove();
+                }
             });
         }
 
@@ -670,6 +706,9 @@ const firebaseConfig = {
                 return;
             }
             
+            // Store today's date
+            const dateStr = getTodayDateString();
+            
             // Check for time conflicts
             const otherBookings = bookings.filter(b => b.id !== bookingId && b.roomId === roomId);
             const hasConflict = otherBookings.some(booking => {
@@ -688,7 +727,8 @@ const firebaseConfig = {
                     name,
                     purpose,
                     startTime,
-                    endTime
+                    endTime,
+                    date: dateStr
                 });
             } else {
                 // Create new booking
@@ -698,7 +738,8 @@ const firebaseConfig = {
                     name,
                     purpose,
                     startTime,
-                    endTime
+                    endTime,
+                    date: dateStr
                 };
                 database.ref(`bookings/${newBooking.id}`).set(newBooking);
             }
